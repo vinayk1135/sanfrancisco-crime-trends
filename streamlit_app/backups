@@ -1,0 +1,213 @@
+import streamlit as st
+import pandas as pd
+import altair as alt
+
+# Configure the page
+st.set_page_config(layout="wide")
+st.title("San Francisco Crime Data Visualization")
+
+
+def create_top_categories_chart(df):
+    # Create DataFrame of top incident categories
+    df_categories = pd.DataFrame(
+        df.incident_category.value_counts().reset_index())
+    df_categories.columns = ['incident_category', 'count']
+
+    # Get top N categories based on user selection
+    top_n = st.sidebar.slider("Number of categories to display", 5, 20, 10)
+    top_categories = df_categories.head(top_n)
+
+    # Calculate averages
+    top_n_avg = top_categories['count'].mean()
+    total_avg = df_categories['count'].mean()
+
+    # Create Altair chart
+    base = alt.Chart(top_categories).encode(
+        x=alt.X('incident_category:N',
+                sort='-y',
+                axis=alt.Axis(
+                    title='Incident Categories',
+                    labelAngle=-45,
+                    labelOverlap=False,  # Prevent label overlap handling
+                    labelLimit=0  # Remove text truncation
+                )),
+        y=alt.Y('count:Q', title='Count'),
+        color=alt.condition(
+            # Fixed condition
+            f"datum.count == {top_categories['count'].max()}",
+            alt.value('red'),  # Color for highest bar
+            alt.value('#ffcccb')  # Light red for other bars
+        )
+    )
+
+    # Bars with custom opacity
+    bars = base.mark_bar(opacity=0.8)
+
+    # Add value labels on top of bars
+    text = base.mark_text(
+        align='center',
+        baseline='bottom',
+        dy=-5
+    ).encode(
+        text=alt.Text('count:Q', format='.0f')
+    )
+
+    # Add average lines with enhanced visibility
+    top_n_rule = alt.Chart(pd.DataFrame({'y': [top_n_avg]})).mark_rule(
+        strokeDash=[5, 5],
+        color='white',
+        strokeWidth=2,
+        opacity=0.8
+    ).encode(
+        y='y',
+        tooltip=[alt.Tooltip('y', title='Top N Average', format='.0f')]
+    )
+
+    total_rule = alt.Chart(pd.DataFrame({'y': [total_avg]})).mark_rule(
+        strokeDash=[3, 3],
+        color='red',
+        strokeWidth=2,
+        opacity=0.8
+    ).encode(
+        y='y',
+        tooltip=[alt.Tooltip('y', title='Total Average', format='.0f')]
+    )
+
+    # Combine all chart elements
+    chart = (bars + text + top_n_rule + total_rule).properties(
+        title=f'Top {top_n} Incident Categories (2018-Present)',
+        width='container',
+        height=500
+    )
+
+    return chart
+
+
+# Load data
+try:
+    df = pd.read_csv('clean_dataset.csv')
+
+    # Create and display chart
+    chart = create_top_categories_chart(df)
+    st.altair_chart(chart, use_container_width=True)
+
+    # Display averages in metrics
+    col1, col2 = st.columns(2)
+    with col1:
+        st.metric("Top Categories Average",
+                  f"{int(df.incident_category.value_counts().head(10).mean())}")
+    with col2:
+        st.metric("Overall Average",
+                  f"{int(df.incident_category.value_counts().mean())}")
+
+except Exception as e:
+    st.error(f"Error loading data: {str(e)}")
+
+
+# 2
+
+
+def load_data():
+    """
+    Load the CSV file from the current directory.
+    Modify the filename if needed.
+    """
+    try:
+        # Try to find the CSV file (modify the filename as needed)
+        csv_files = [f for f in os.listdir('.') if f.endswith('.csv')]
+
+        if not csv_files:
+            st.error("No CSV files found in the current directory!")
+            return None
+
+        # Use the first CSV file found
+        filename = csv_files[0]
+        df = pd.read_csv(filename)
+
+        st.sidebar.success(f"Loaded data from {filename}")
+        return df
+    except Exception as e:
+        st.error(f"Error loading CSV file: {e}")
+        return None
+
+
+def create_top_categories_chart(df):
+    """
+    Create a bar chart of top incident categories
+    """
+    if df is None:
+        return None
+
+    # Assuming there's a column for incident categories
+    category_column = st.sidebar.selectbox(
+        "Select Category Column",
+        df.select_dtypes(include=['object']).columns
+    )
+
+    # Count of top categories
+    top_n = st.sidebar.slider("Number of Top Categories", 5, 20, 10)
+
+    # Create DataFrame of top categories
+    top_categories = df[category_column].value_counts().head(
+        top_n).reset_index()
+    top_categories.columns = [category_column, 'count']
+
+    # Altair chart
+    chart = alt.Chart(top_categories).mark_bar().encode(
+        x=alt.X(f'{category_column}:N',
+                title='Categories',
+                sort='-y'),
+        y=alt.Y('count:Q', title='Count'),
+        tooltip=[category_column, 'count']
+    ).properties(
+        title=f'Top {top_n} {category_column} Categories',
+        width='container',
+        height=400
+    )
+
+    return chart
+
+
+def main():
+    st.set_page_config(layout="wide")
+    st.title("CSV Data Visualization")
+
+    # Load data
+    df = load_data()
+
+    if df is not None:
+        # Sidebar for data exploration
+        st.sidebar.header("Data Exploration")
+
+        # Create chart
+        chart = create_top_categories_chart(df)
+
+        if chart:
+            # Display chart
+            st.altair_chart(chart, use_container_width=True)
+
+            # Basic data summary
+            st.header("Data Summary")
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.metric("Total Rows", len(df))
+                st.metric("Total Columns", len(df.columns))
+
+            with col2:
+                st.metric("Numeric Columns",
+                          len(df.select_dtypes(include=['int64', 'float64']).columns))
+                st.metric("Categorical Columns",
+                          len(df.select_dtypes(include=['object']).columns))
+
+
+if __name__ == '__main__':
+    import os
+    main()
+
+# Running instructions:
+# 1. Ensure the CSV is in the same directory as this script
+# 2. Install required libraries:
+#    pip install streamlit pandas altair
+# 3. Run the app:
+#    streamlit run app.py

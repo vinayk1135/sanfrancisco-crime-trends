@@ -1,0 +1,6 @@
+pandas
+plotly
+altair 
+streamlit
+numpy
+pydeck

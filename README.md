@@ -46,5 +46,5 @@ For a full description of all columns, refer to the dataset's [metadata](https:/
 ## Installation
 1. Clone the repository:
    ```bash
-   git clone https://github.com/yourusername/sf-property-crimes-viz.git
-   cd sf-property-crimes-viz
+   git clone https://github.com/vinayk1135/sanfrancisco-crime-trends.git
+   cd sanfrancisco-crime-trends
